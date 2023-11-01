@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 class TokenType(Enum):
-    NUMBER = auto()
+    INT = auto()
+    FLOAT = auto()
     STRING = auto()
 
     EQUALS = auto()     # =
@@ -23,9 +24,9 @@ class TokenType(Enum):
     COMMA = auto()      # ,
     COLON = auto()      # :
 
-    SPACE = auto()
     INDENT = auto()
     DEDENT = auto()
+    NEWLINE = auto()
 
     IDENTIFIER = auto()
     LET = auto()
@@ -56,7 +57,6 @@ def tokenize(source_code: str) -> list[Token]:
         '}': TokenType.CLOSE_BRACE,
         '[': TokenType.OPEN_BRACKET,
         ']': TokenType.CLOSE_BRACKET,
-        ' ': TokenType.SPACE,
         '.': TokenType.PERIOD,
         ',': TokenType.COMMA,
         ':': TokenType.COLON,
@@ -68,9 +68,12 @@ def tokenize(source_code: str) -> list[Token]:
     chars = [*source_code]
 
     while chars:
-        if chars[0] == '\n':
-            chars.pop(0)    # drop '\n'
+        if chars[0] == ' ':
+            chars.pop(0)
+        elif chars[0] == '\n':
+            token_stream.append(Token(chars.pop(0), TokenType.NEWLINE))
 
+            # handles indentation
             indent_level = 0
             while chars[:4] == [' ',]*4:
                 del chars[:4]
@@ -91,27 +94,47 @@ def tokenize(source_code: str) -> list[Token]:
             while indent_level < last_indent_level:
                 last_indent_level -= 1
                 token_stream.append(Token(None, TokenType.DEDENT))
+
+        elif chars[0] in '\'"':
+            # build strings
+            quote_type = chars[0]
+            chars.pop(0)    # del open quote
+            full_string = []
+
+            while chars[0] != quote_type:
+                full_string.append(chars.pop(0))
+            chars.pop(0)    # del close quote
+
+            token_stream.append(Token(''.join(full_string), TokenType.STRING))
         elif chars[0] in token_map:
             in_block = chars[0] in '({['
             token_stream.append(Token(chars[0], token_map[chars.pop(0)]))
         elif chars[0].isnumeric():
-            # build number token
-            full_value = []
+            # this builds float and int tokens
+            full_number = []
+            period_found = False
             while chars and (chars[0].isnumeric() or chars[0] == '.'):
-                full_value.append(chars.pop(0))
-            token_stream.append(Token(''.join(full_value), TokenType.NUMBER))
+                if period_found and not chars[0].isnumeric():
+                    break
+                if chars[0] == '.':
+                    period_found = True
+                full_number.append(chars.pop(0))
+            if period_found:
+                token_stream.append(Token(''.join(full_number), TokenType.FLOAT))
+            else:
+                token_stream.append(Token(''.join(full_number), TokenType.INT))
         elif chars[0].isalpha():
-            # build identifier and keyword tokens
+            # this builds identifier and keyword tokens
             full_value = []
-            while chars and (chars[0].isalpha() or chars[0].isnumeric() or chars[0] in '_'):
+            while chars and (chars[0].isalnum() or chars[0] in '_'):
                 full_value.append(chars.pop(0))
 
             value = ''.join(full_value)
-            
+
             # check for keywords
-            keyword = KEYWORDS.get(value)
-            if keyword:
-                token_stream.append(Token(value, keyword))
+            reserved = KEYWORDS.get(value)
+            if reserved:
+                token_stream.append(Token(value, reserved))
             else:
                 token_stream.append(Token(value, TokenType.IDENTIFIER))
         else:
