@@ -33,3 +33,7 @@ class FloatLiteral(Expression):
 @dataclass
 class StringLiteral(Expression):
     value: str
+
+@dataclass
+class BooleanLiteral(Expression):
+    value: bool

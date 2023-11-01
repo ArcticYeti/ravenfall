@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 
-from .ast_types import BinaryExpression, Expression, FloatLiteral, Identifier, IntLiteral, Program, Statement, StringLiteral
+from .type_checking import type_check_binary_expression
+from .ast_types import BinaryExpression, BooleanLiteral, Expression, FloatLiteral, Identifier, IntLiteral, Program, Statement, StringLiteral
 from .lexer import Token, TokenType
-
-
 
 @dataclass
 class Parser:
@@ -45,6 +44,9 @@ class Parser:
             right = self._parse_multiplicative_expression()
             left = BinaryExpression(left, right, operator)
 
+        if type_check_binary_expression(left) == None:
+            raise TypeError('Missmatching types in binary expression')
+
         return left
 
     def _parse_multiplicative_expression(self) -> Expression:
@@ -54,7 +56,6 @@ class Parser:
             operator = self._eat().value
             right = self._parse_primary_expression()
             left = BinaryExpression(left, right, operator)
-
         return left
 
     def _parse_primary_expression(self) -> Expression:  # type: ignore
@@ -62,6 +63,7 @@ class Parser:
             TokenType.INT: IntLiteral,
             TokenType.FLOAT: FloatLiteral,
             TokenType.STRING: StringLiteral,
+            TokenType.BOOLEAN: BooleanLiteral
         }
 
         token = self._at()

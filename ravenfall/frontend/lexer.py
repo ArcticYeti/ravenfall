@@ -5,6 +5,7 @@ class TokenType(Enum):
     INT = auto()
     FLOAT = auto()
     STRING = auto()
+    BOOLEAN = auto()
 
     EQUALS = auto()     # =
     ADD = auto()        # +
@@ -97,7 +98,7 @@ def tokenize(source_code: str) -> list[Token]:
                 last_indent_level -= 1
                 token_stream.append(Token('', TokenType.DEDENT))
 
-        elif chars[0] in '\'"':
+        elif chars[0] in ['\'', '"']:
             # build strings
             quote_type = chars[0]
             chars.pop(0)    # del open quote
@@ -130,19 +131,24 @@ def tokenize(source_code: str) -> list[Token]:
             else:
                 token_stream.append(Token(''.join(full_number), TokenType.INT))
         elif chars[0].isalpha():
-            # this builds identifier and keyword tokens
+            # this builds identifier, boolean and keyword tokens
             full_value = []
             while chars and (chars[0].isalnum() or chars[0] in '_'):
                 full_value.append(chars.pop(0))
 
             value = ''.join(full_value)
 
+            # check for booleans
+            if value in ['true', 'false'] :
+                token_stream.append(Token(value, TokenType.BOOLEAN))
+                continue
+
             # check for keywords
             reserved = KEYWORDS.get(value)
             if reserved:
                 token_stream.append(Token(value, reserved))
             else:
-                token_stream.append(Token(value, TokenType.IDENTIFIER))
+                token_stream.append(Token(value, TokenType.IDENTIFIER))            
         else:
             raise Exception(f'Unrecognized character "{chars[0]}" found during tokenization')
 
