@@ -40,7 +40,7 @@ KEYWORDS: dict[str, TokenType] = {
 
 @dataclass
 class Token:
-    value: str | None
+    value: str
     type: TokenType
 
 def tokenize(source_code: str) -> list[Token]:
@@ -51,18 +51,18 @@ def tokenize(source_code: str) -> list[Token]:
         '*': TokenType.MULTIPLY,
         '/': TokenType.DIVIDE,
         '%': TokenType.MODULO,
+        '.': TokenType.PERIOD,
+        ',': TokenType.COMMA,
+        ':': TokenType.COLON,
         '(': TokenType.OPEN_PAREN,
         ')': TokenType.CLOSE_PAREN,
         '{': TokenType.OPEN_BRACE,
         '}': TokenType.CLOSE_BRACE,
         '[': TokenType.OPEN_BRACKET,
         ']': TokenType.CLOSE_BRACKET,
-        '.': TokenType.PERIOD,
-        ',': TokenType.COMMA,
-        ':': TokenType.COLON,
     }
 
-    in_block = False
+    any_bracket_level = 0       # this tracks whether we're currently in any bracket block or not
     last_indent_level = 0
     token_stream: list[Token] = []
     chars = [*source_code]
@@ -71,7 +71,7 @@ def tokenize(source_code: str) -> list[Token]:
         if chars[0] == ' ':
             chars.pop(0)
         elif chars[0] == '\n':
-            token_stream.append(Token(chars.pop(0), TokenType.NEWLINE))
+            newline = chars.pop(0)
 
             # handles indentation
             indent_level = 0
@@ -79,9 +79,11 @@ def tokenize(source_code: str) -> list[Token]:
                 del chars[:4]
                 indent_level += 1
 
-            if in_block:
-                # ignore indentation when inside a ({[ block )}]
+            if any_bracket_level > 0:
+                # ignores indentation and newlines when inside a ({[ block )}]
                 continue
+
+            token_stream.append(Token(newline, TokenType.NEWLINE))
 
             if indent_level > last_indent_level:
                 too_much_indent = last_indent_level - indent_level != -1
@@ -89,11 +91,11 @@ def tokenize(source_code: str) -> list[Token]:
                     raise IndentationError('Invalid indentation')
 
                 last_indent_level = indent_level
-                token_stream.append(Token(None, TokenType.INDENT))
+                token_stream.append(Token('', TokenType.INDENT))
 
             while indent_level < last_indent_level:
                 last_indent_level -= 1
-                token_stream.append(Token(None, TokenType.DEDENT))
+                token_stream.append(Token('', TokenType.DEDENT))
 
         elif chars[0] in '\'"':
             # build strings
@@ -107,7 +109,11 @@ def tokenize(source_code: str) -> list[Token]:
 
             token_stream.append(Token(''.join(full_string), TokenType.STRING))
         elif chars[0] in token_map:
-            in_block = chars[0] in '({['
+            if chars[0] in ['(', '{', '[']:
+                any_bracket_level += 1
+            elif chars[0] in [')', '}', ']']:
+                any_bracket_level -= 1
+
             token_stream.append(Token(chars[0], token_map[chars.pop(0)]))
         elif chars[0].isnumeric():
             # this builds float and int tokens
@@ -140,5 +146,5 @@ def tokenize(source_code: str) -> list[Token]:
         else:
             raise Exception(f'Unrecognized character "{chars[0]}" found during tokenization')
 
-    token_stream.append(Token(None, TokenType.EOF))
+    token_stream.append(Token('', TokenType.EOF))
     return token_stream
